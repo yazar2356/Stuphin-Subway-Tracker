@@ -22,7 +22,7 @@
                 const response = await fetch('https://mta-api.herokuapp.com/stop/F05');
                 const data = await response.json();
                 
-                // Filter specifically for Manhattan-bound F trains
+                // Filter specifically for Manhattan-bound F trains (Southbound)
                 const trains = data.arrivals.filter(t => t.route === 'F');
 
                 if (trains.length > 0) {
