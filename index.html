@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { background: #000; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; overflow: hidden; }
+        body { background: #000; color: #fff; font-family: 'Helvetica Neue', Arial; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; overflow: hidden; }
         .station { font-size: 4vh; color: #888; text-transform: uppercase; margin-bottom: 2vh; }
-        .f-circle { background: #FF6319; color: white; border-radius: 50%; width: 25vh; height: 25vh; line-height: 25vh; font-size: 18vh; font-weight: bold; margin: 0 auto; }
-        .timer { font-size: 20vh; font-weight: 900; color: #FF6319; margin: 2vh 0; }
+        .f-circle { background: #FF6319; color: white; border-radius: 50%; width: 20vh; height: 20vh; line-height: 20vh; font-size: 15vh; font-weight: bold; margin: 0 auto; }
+        .timer { font-size: 25vh; font-weight: 900; color: #FF6319; margin: 2vh 0; }
         .sub-text { font-size: 5vh; color: #444; }
     </style>
 </head>
@@ -14,32 +14,35 @@
     <div class="station">Sutphin Blvd - Manhattan Bound</div>
     <div class="f-circle">F</div>
     <div id="time" class="timer">LOADING</div>
-    <div id="next" class="sub-text">Refreshing feed...</div>
+    <div id="next" class="sub-text">Refreshing...</div>
 
     <script>
         async function updateF() {
             try {
-                // Using a direct, high-reliability JSON source for Sutphin Blvd (Stop F05)
-                const res = await fetch('https://mta-api.herokuapp.com/stop/F05');
-                const data = await res.json();
+                // This proxy adds the 'handshake' headers needed for browser security
+                const proxy = "https://api.allorigins.win/get?url=";
+                const target = encodeURIComponent("https://mta-api.herokuapp.com/stop/F05");
                 
-                // Filtering logic to find the first Manhattan-bound F train
-                const arrivals = data.arrivals.filter(t => t.route === 'F');
+                const response = await fetch(proxy + target);
+                const result = await response.json();
+                const data = JSON.parse(result.contents);
+                
+                // Filter specifically for Manhattan-bound F trains (Southbound)
+                const fTrains = data.arrivals.filter(t => t.route === 'F');
 
-                if (arrivals.length > 0) {
-                    document.getElementById('time').innerText = arrivals[0].time + " MIN";
-                    document.getElementById('next').innerText = "Following: " + (arrivals[1]?.time || "--") + " min";
+                if (fTrains.length > 0) {
+                    document.getElementById('time').innerText = fTrains[0].time + " MIN";
+                    document.getElementById('next').innerText = "Next: " + (fTrains[1]?.time || "--") + " min";
                 } else {
                     document.getElementById('time').innerText = "NO DATA";
-                    document.getElementById('next').innerText = "Check MTA Service Status";
                 }
-            } catch (e) {
-                console.log("Connection lag, retrying...");
+            } catch (error) {
+                console.error("Connection failed:", error);
                 document.getElementById('time').innerText = "RETRYING";
             }
         }
-        
-        setInterval(updateF, 30000); // Refreshes every 30 seconds
+
+        setInterval(updateF, 30000); 
         updateF();
     </script>
 </body>
