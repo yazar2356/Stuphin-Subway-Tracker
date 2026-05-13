@@ -1,0 +1,23 @@
+// Update these constants in your <script> tag
+const API_KEY = "YOUR_MTA_API_KEY"; 
+const FEED_URL = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-bdfm";
+const STOP_ID = "F05S"; // Sutphin Blvd - Manhattan Bound
+
+async function getTrainTimes() {
+    try {
+        // Because the MTA feed is a binary Protocol Buffer, 
+        // you will typically need a proxy or a library like 'gtfs-realtime-bindings'
+        // to parse it in a standard web browser.
+        
+        const response = await fetch(FEED_URL, {
+            headers: { "x-api-key": API_KEY }
+        });
+        
+        // Parsing logic would go here to find STOP_ID "F05S"
+        // and extract the 'arrival' timestamp.
+        
+        console.log("Fetching Manhattan-bound F trains for Sutphin Blvd...");
+    } catch (error) {
+        console.error("Error fetching MTA data:", error);
+    }
+}
