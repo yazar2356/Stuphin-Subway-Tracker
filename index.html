@@ -1,42 +1,53 @@
 <script>
-    async function updateF() {
-        try {
-            const proxy = "https://corsproxy.io/?";
-            const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
-            
-            const response = await fetch(proxy + encodeURIComponent(target));
-            const data = await response.json();
+  async function updateF() {
+    try {
+      const proxy = "https://corsproxy.io/?";
+      const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
 
-            const stop = data.data.find(s => s.id === "F05");
-            
-            // Current time in seconds
-            const now = Math.floor(Date.now() / 1000);
+      const response = await fetch(proxy + encodeURIComponent(target));
+      const data = await response.json();
 
-            // Filter for F trains headed South (Manhattan Bound) 
-            // and only those more than 60 seconds away
-            const southbound = stop.S
-                .filter(t => t.route === "F")
-                .map(t => {
-                    const arrivalTime = Math.floor(new Date(t.time).getTime() / 1000);
-                    return Math.floor((arrivalTime - now) / 60);
-                })
-                .filter(mins => mins > 0); // Ignore trains that are '0' or negative (already arrived)
+      const stop = data.data.find(s => s.id === "F05");
+      if (!stop || !stop.S || !Array.isArray(stop.S)) {
+        throw new Error("Stop data missing");
+      }
 
-            if (southbound.length > 0) {
-                document.getElementById('time').innerText = southbound[0] + " MIN";
-                document.getElementById('next').innerText = southbound[1] 
-                    ? "Following: " + southbound[1] + " min" 
-                    : "No following trains";
-            } else {
-                document.getElementById('time').innerText = "WAIT";
-                document.getElementById('next').innerText = "Finding next train...";
-            }
-        } catch (err) {
-            console.error("Data error:", err);
-            document.getElementById('time').innerText = "SYNC";
-        }
+      const nowMs = Date.now();
+
+      const arrivals = stop.S
+        .filter(t => t.route === "F" && t.time)
+        .map(t => {
+          const arrivalMs = new Date(t.time).getTime();
+          return { diffMs: arrivalMs - nowMs };
+        })
+        .filter(t => t.diffMs > -30000)
+        .sort((a, b) => a.diffMs - b.diffMs)
+        .slice(0, 3);
+
+      const timeEl = document.getElementById("time");
+      const nextEl = document.getElementById("next");
+
+      if (!arrivals.length) {
+        timeEl.innerText = "WAIT";
+        nextEl.innerText = "No upcoming F trains";
+        return;
+      }
+
+      const formatMain = (diffMs) => diffMs < 60000 ? "NOW" : `${Math.ceil(diffMs / 60000)} MIN`;
+      const formatSmall = (diffMs) => diffMs < 60000 ? "Now" : `${Math.ceil(diffMs / 60000)} min`;
+
+      timeEl.innerText = formatMain(arrivals[0].diffMs);
+
+      const following = arrivals.slice(1).map(t => formatSmall(t.diffMs)).join(" • ");
+      nextEl.innerText = following ? `Then: ${following}` : "No later trains listed";
+
+    } catch (err) {
+      console.error("Data error:", err);
+      document.getElementById("time").innerText = "SYNC";
+      document.getElementById("next").innerText = "Unable to load arrivals";
     }
-    
-    setInterval(updateF, 30000);
-    updateF();
+  }
+
+  setInterval(updateF, 30000);
+  updateF();
 </script>
