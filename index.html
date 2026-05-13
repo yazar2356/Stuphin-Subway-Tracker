@@ -1,162 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>F Train Tracker</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #000;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    .board {
-      width: 100%;
-      max-width: 1200px;
-      text-align: center;
-    }
-
-    .station {
-      font-size: 2rem;
-      color: #a9a9a9;
-      margin-bottom: 32px;
-      letter-spacing: 0.04em;
-    }
-
-    .badge {
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      background: #ff6319;
-      color: #fff;
-      font-size: 5rem;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 32px;
-    }
-
-    #time {
-      font-size: clamp(4rem, 14vw, 9rem);
-      font-weight: 800;
-      line-height: 1;
-      color: #ff6319;
-    }
-
-    #next {
-      margin-top: 24px;
-      font-size: clamp(1.4rem, 3vw, 2.2rem);
-      color: #8f8f8f;
-    }
-
-    .updated {
-      margin-top: 18px;
-      font-size: 1rem;
-      color: #5f5f5f;
-    }
-  </style>
-</head>
-<body>
-  <div class="board">
-    <div class="station">SUTPHIN BLVD – MANHATTAN BOUND</div>
-    <div class="badge">F</div>
-    <div id="time">...</div>
-    <div id="next">Loading trains...</div>
-    <div class="updated" id="updated"></div>
-  </div>
-
-  <script>
+<script>
     async function updateF() {
-      const timeEl = document.getElementById("time");
-      const nextEl = document.getElementById("next");
-      const updatedEl = document.getElementById("updated");
+        try {
+            const proxy = "https://corsproxy.io/?";
+            const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
+            
+            const response = await fetch(proxy + encodeURIComponent(target));
+            const data = await response.json();
 
-      try {
-        const proxy = "https://corsproxy.io/?";
-        const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
+            const stop = data.data.find(s => s.id === "F05");
+            
+            // Current time in seconds
+            const now = Math.floor(Date.now() / 1000);
 
-        const response = await fetch(proxy + encodeURIComponent(target));
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
+            // Filter for F trains headed South (Manhattan Bound) 
+            // and only those more than 60 seconds away
+            const southbound = stop.S
+                .filter(t => t.route === "F")
+                .map(t => {
+                    const arrivalTime = Math.floor(new Date(t.time).getTime() / 1000);
+                    return Math.floor((arrivalTime - now) / 60);
+                })
+                .filter(mins => mins > 0); // Ignore trains that are '0' or negative (already arrived)
+
+            if (southbound.length > 0) {
+                document.getElementById('time').innerText = southbound[0] + " MIN";
+                document.getElementById('next').innerText = southbound[1] 
+                    ? "Following: " + southbound[1] + " min" 
+                    : "No following trains";
+            } else {
+                document.getElementById('time').innerText = "WAIT";
+                document.getElementById('next').innerText = "Finding next train...";
+            }
+        } catch (err) {
+            console.error("Data error:", err);
+            document.getElementById('time').innerText = "SYNC";
         }
-
-        const data = await response.json();
-
-        if (!data || !data.data || !Array.isArray(data.data)) {
-          throw new Error("Invalid API response");
-        }
-
-        const stop = data.data.find((s) => s.id === "F05");
-        if (!stop || !stop.S || !Array.isArray(stop.S)) {
-          throw new Error("Stop data missing");
-        }
-
-        const nowMs = Date.now();
-
-        const arrivals = stop.S
-          .filter((t) => t.route === "F" && t.time)
-          .map((t) => {
-            const arrivalMs = new Date(t.time).getTime();
-            return { diffMs: arrivalMs - nowMs };
-          })
-          .filter((t) => t.diffMs > -30000)
-          .sort((a, b) => a.diffMs - b.diffMs)
-          .slice(0, 3);
-
-        if (!arrivals.length) {
-          timeEl.innerText = "WAIT";
-          nextEl.innerText = "No upcoming F trains";
-          updatedEl.innerText = "";
-          return;
-        }
-
-        const formatMain = (diffMs) => {
-          if (diffMs < 60000) return "NOW";
-          return `${Math.ceil(diffMs / 60000)} MIN`;
-        };
-
-        const formatSmall = (diffMs) => {
-          if (diffMs < 60000) return "Now";
-          return `${Math.ceil(diffMs / 60000)} min`;
-        };
-
-        timeEl.innerText = formatMain(arrivals[0].diffMs);
-
-        const following = arrivals
-          .slice(1)
-          .map((t) => formatSmall(t.diffMs))
-          .join(" • ");
-
-        nextEl.innerText = following
-          ? `Then: ${following}`
-          : "No later trains listed";
-
-        updatedEl.innerText = `Updated ${new Date().toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit"
-        })}`;
-      } catch (err) {
-        console.error("Data error:", err);
-        timeEl.innerText = "SYNC";
-        nextEl.innerText = "Unable to load arrivals";
-        updatedEl.innerText = "";
-      }
     }
-
-    updateF();
+    
     setInterval(updateF, 30000);
-  </script>
-</body>
-</html>
+    updateF();
+</script>
