@@ -61,7 +61,7 @@
 </head>
 <body>
   <div class="board">
-    <div class="station">SUTPHIN BLVD  MANHATTAN BOUND</div>
+    <div class="station">SUTPHIN BLVD – MANHATTAN BOUND</div>
     <div class="badge">F</div>
     <div id="time">...</div>
     <div id="next">Loading trains...</div>
@@ -71,7 +71,7 @@
   <script>
     async function updateF() {
       const timeEl = document.getElementById("time");
-      const nextEl = document.getElementById("next");
+      const nextEl = document.getElementElementById("next");
       const updatedEl = document.getElementById("updated");
 
       try {
@@ -127,7 +127,7 @@
         const following = arrivals
           .slice(1)
           .map((t) => formatSmall(t.diffMs))
-          .join("  ");
+          .join(" • ");
 
         nextEl.innerText = following
           ? `Then: ${following}`
