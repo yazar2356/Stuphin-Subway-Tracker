@@ -1,25 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { background: #000; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; overflow: hidden; }
-        .station { font-size: 4vh; color: #888; text-transform: uppercase; margin-bottom: 2vh; }
-        .f-circle { background: #FF6319; color: white; border-radius: 50%; width: 25vh; height: 25vh; line-height: 25vh; font-size: 18vh; font-weight: bold; margin: 0 auto; }
-        .timer { font-size: 25vh; font-weight: 900; color: #FF6319; margin: 2vh 0; }
-        .sub-text { font-size: 5vh; color: #444; }
-    </style>
-</head>
-<body>
-    <div class="station">Sutphin Blvd – Manhattan Bound</div>
-    <div class="f-circle">F</div>
-    <div id="time" class="timer">SYNCING</div>
-    <div id="next" class="sub-text">Connecting to Feed...</div>
-
-    <script>
+<script>
         async function updateF() {
             try {
-                // This proxy (corsproxy.io) acts as a bridge to bypass security blocks
                 const proxy = "https://corsproxy.io/?";
                 const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
                 
@@ -27,34 +8,32 @@
                 const data = await response.json();
 
                 const stop = data.data.find(s => s.id === "F05");
+                
+                // CRITICAL FIX: Ensure we only look at "S" (Southbound/Manhattan-bound)
                 const southbound = stop.S.filter(t => t.route === "F");
 
                 if (southbound.length > 0) {
                     const now = Math.floor(Date.now() / 1000);
-                    // Use new Date(t.time) because this specific API returns ISO strings
-                    const arrival0 = Math.floor(new Date(southbound[0].time).getTime() / 1000);
-                    const mins0 = Math.round((arrival0 - now) / 60);
-
-                    document.getElementById('time').innerText = Math.max(0, mins0) + " MIN";
+                    
+                    // Use a 60-second floor to avoid showing "0 MIN" for a train 
+                    // that is still a minute or two away
+                    const arrivalTime = Math.floor(new Date(southbound[0].time).getTime() / 1000);
+                    let mins0 = Math.floor((arrivalTime - now) / 60);
+                    
+                    // If the math results in 0 but the train hasn't arrived, 
+                    // it helps to show "ARRIVING" or at least "1 MIN"
+                    document.getElementById('time').innerText = (mins0 <= 0 ? "ARR" : mins0) + " MIN";
                     
                     if (southbound[1]) {
                         const arrival1 = Math.floor(new Date(southbound[1].time).getTime() / 1000);
-                        const mins1 = Math.round((arrival1 - now) / 60);
-                        document.getElementById('next').innerText = "Following: " + Math.max(0, mins1) + " min";
+                        const mins1 = Math.floor((arrival1 - now) / 60);
+                        document.getElementById('next').innerText = "Following: " + mins1 + " min";
                     }
-                } else {
-                    document.getElementById('time').innerText = "NO F";
-                    document.getElementById('next').innerText = "No Manhattan-bound trains";
                 }
             } catch (err) {
-                console.error(err);
                 document.getElementById('time').innerText = "RETRYING";
-                document.getElementById('next').innerText = "MTA Signal Lag...";
             }
         }
-
         setInterval(updateF, 30000);
         updateF();
     </script>
-</body>
-</html>
