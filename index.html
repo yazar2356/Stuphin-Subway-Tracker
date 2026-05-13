@@ -11,38 +11,46 @@
     </style>
 </head>
 <body>
-    <div class="station">Sutphin Blvd - Manhattan Bound</div>
+    <div class="station">Sutphin Blvd – Manhattan Bound</div>
     <div class="f-circle">F</div>
-    <div id="time" class="timer">LOADING</div>
-    <div id="next" class="sub-text">Refreshing...</div>
+    <div id="time" class="timer">--</div>
+    <div id="next" class="sub-text">Loading...</div>
 
     <script>
         async function updateF() {
             try {
-                // This proxy adds the 'handshake' headers needed for browser security
-                const proxy = "https://api.allorigins.win/get?url=";
-                const target = encodeURIComponent("https://mta-api.herokuapp.com/stop/F05");
-                
-                const response = await fetch(proxy + target);
-                const result = await response.json();
-                const data = JSON.parse(result.contents);
-                
-                // Filter specifically for Manhattan-bound F trains (Southbound)
-                const fTrains = data.arrivals.filter(t => t.route === 'F');
+                // Active community API — returns JSON directly, no proxy needed
+                const response = await fetch("https://api.wheresthefuckingtrain.com/by-id/F05");
+                const data = await response.json();
 
-                if (fTrains.length > 0) {
-                    document.getElementById('time').innerText = fTrains[0].time + " MIN";
-                    document.getElementById('next').innerText = "Next: " + (fTrains[1]?.time || "--") + " min";
+                // Find the F05 stop
+                const stop = data.data.find(s => s.id === "F05");
+                if (!stop) throw new Error("Stop not found");
+
+                // "S" = Southbound = Manhattan-bound from Sutphin Blvd
+                const southbound = stop.S.filter(t => t.route === "F");
+
+                if (southbound.length > 0) {
+                    const now = Math.floor(Date.now() / 1000);
+                    const mins0 = Math.round((southbound[0].time - now) / 60);
+                    const mins1 = southbound[1] ? Math.round((southbound[1].time - now) / 60) : null;
+
+                    document.getElementById('time').innerText = Math.max(0, mins0) + " MIN";
+                    document.getElementById('next').innerText = mins1 !== null
+                        ? "Next: " + Math.max(0, mins1) + " min"
+                        : "No second train";
                 } else {
-                    document.getElementById('time').innerText = "NO DATA";
+                    document.getElementById('time').innerText = "NO F";
+                    document.getElementById('next').innerText = "No Manhattan-bound trains";
                 }
-            } catch (error) {
-                console.error("Connection failed:", error);
-                document.getElementById('time').innerText = "RETRYING";
+            } catch (err) {
+                console.error(err);
+                document.getElementById('time').innerText = "ERROR";
+                document.getElementById('next').innerText = err.message;
             }
         }
 
-        setInterval(updateF, 30000); 
+        setInterval(updateF, 30000);
         updateF();
     </script>
 </body>
