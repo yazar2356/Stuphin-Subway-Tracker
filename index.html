@@ -1,39 +1,45 @@
 <script>
-        async function updateF() {
-            try {
-                const proxy = "https://corsproxy.io/?";
-                const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
-                
-                const response = await fetch(proxy + encodeURIComponent(target));
-                const data = await response.json();
+    async function updateF() {
+        try {
+            const proxy = "https://corsproxy.io/?";
+            const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
+            
+            const response = await fetch(proxy + encodeURIComponent(target));
+            const data = await response.json();
 
-                const stop = data.data.find(s => s.id === "F05");
-                
-                // CRITICAL FIX: Ensure we only look at "S" (Southbound/Manhattan-bound)
-                const southbound = stop.S.filter(t => t.route === "F");
+            const stop = data.data.find(s => s.id === "F05");
+            
+            // 1. FILTER: Only Manhattan-bound (Southbound)
+            // 2. FILTER: Only show trains at least 1 minute away to avoid "0 MIN" ghosting
+            const now = Math.floor(Date.now() / 1000);
+            const southbound = stop.S
+                .filter(t => t.route === "F")
+                .map(t => ({
+                    ...t,
+                    mins: Math.floor((new Date(t.time).getTime() / 1000 - now) / 60)
+                }))
+                .filter(t => t.mins >= 1); // Exclude trains that have already "arrived" (0 or less)
 
-                if (southbound.length > 0) {
-                    const now = Math.floor(Date.now() / 1000);
-                    
-                    // Use a 60-second floor to avoid showing "0 MIN" for a train 
-                    // that is still a minute or two away
-                    const arrivalTime = Math.floor(new Date(southbound[0].time).getTime() / 1000);
-                    let mins0 = Math.floor((arrivalTime - now) / 60);
-                    
-                    // If the math results in 0 but the train hasn't arrived, 
-                    // it helps to show "ARRIVING" or at least "1 MIN"
-                    document.getElementById('time').innerText = (mins0 <= 0 ? "ARR" : mins0) + " MIN";
-                    
-                    if (southbound[1]) {
-                        const arrival1 = Math.floor(new Date(southbound[1].time).getTime() / 1000);
-                        const mins1 = Math.floor((arrival1 - now) / 60);
-                        document.getElementById('next').innerText = "Following: " + mins1 + " min";
-                    }
+            if (southbound.length > 0) {
+                // Primary display
+                document.getElementById('time').innerText = southbound[0].mins + " MIN";
+                
+                // Secondary display
+                if (southbound[1]) {
+                    document.getElementById('next').innerText = "Following: " + southbound[1].mins + " min";
+                } else {
+                    document.getElementById('next').innerText = "Checking next...";
                 }
-            } catch (err) {
-                document.getElementById('time').innerText = "RETRYING";
+            } else {
+                document.getElementById('time').innerText = "WAIT";
+                document.getElementById('next').innerText = "Searching for next F...";
             }
+        } catch (err) {
+            console.error("Data error:", err);
+            document.getElementById('time').innerText = "SYNC";
         }
-        setInterval(updateF, 30000);
-        updateF();
-    </script>
+    }
+    
+    setInterval(updateF, 30000); // 30-second refresh cycle
+    updateF();
+</script>
