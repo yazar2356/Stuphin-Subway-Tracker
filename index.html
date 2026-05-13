@@ -1,36 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Sutphin Blvd F Train</title>
-    <style>
-        body { background: #000; color: #fff; font-family: Arial, sans-serif; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; margin: 0; }
-        .f-circle { background: #FF6319; color: white; border-radius: 50%; width: 200px; height: 200px; line-height: 200px; font-size: 140px; font-weight: bold; margin: 0 auto; }
-        .timer { font-size: 150px; font-weight: bold; color: #FF6319; margin-top: 20px; }
-        .station { font-size: 40px; margin-bottom: 10px; color: #888; }
-    </style>
-</head>
-<body>
-    <div class="station">SUTPHIN BLVD</div>
-    <div class="f-circle">F</div>
-    <div id="time" class="timer">-- MIN</div>
-
-    <script>
+<script>
         async function getTrains() {
             try {
-                // Using a public proxy to fetch Sutphin Blvd (F05) data
-                const res = await fetch('https://mta-api.herokuapp.com/stop/F05');
+                // Fetching from a secondary reliable JSON source for the F train
+                const res = await fetch('https://mta-api.herokuapp.com/by-route/F');
                 const data = await res.json();
-                // Filter for F trains headed toward Manhattan (Southbound)
-                const fTrain = data.arrivals.find(t => t.route === 'F');
-                if (fTrain) {
-                    document.getElementById('time').innerText = fTrain.time + " MIN";
+                
+                // We are looking for Sutphin Blvd (Stop F05) Manhattan Bound (Southbound)
+                const sutphinS = data.data.find(stop => stop.id === "F05")
+                                     .arrivals.filter(t => t.id.includes('S'));
+                
+                if (sutphinS.length > 0) {
+                    // Calculate minutes from now
+                    const now = Math.floor(Date.now() / 1000);
+                    const arrivalTime = sutphinS[0].time;
+                    const diff = Math.round((arrivalTime - now) / 60);
+                    
+                    document.getElementById('time').innerText = (diff > 0 ? diff : "0") + " MIN";
+                    
+                    const nextDiff = Math.round((sutphinS[1].time - now) / 60);
+                    document.getElementById('next').innerText = "Next: " + nextDiff + " min";
                 }
             } catch (e) {
-                console.log("Refreshing...");
+                console.log("Waiting for MTA update...");
             }
         }
         setInterval(getTrains, 30000);
         getTrains();
     </script>
-</body>
-</html>
