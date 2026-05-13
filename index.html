@@ -88,20 +88,30 @@
           throw new Error("Invalid API response");
         }
 
-        const stop = data.data.find((s) => s.id === "F05");
-        if (!stop || !stop.S || !Array.isArray(stop.S)) {
-          throw new Error("Stop data missing");
+        // Log the whole payload once for debugging in browser
+        console.log("raw data", data);
+
+        const stop = data.data.find((s) => s.id === "F05") || data.data[0];
+        if (!stop) {
+          throw new Error("Stop F05 not found in response");
         }
 
         const nowMs = Date.now();
 
-        const arrivals = stop.S
-          .filter((t) => t.route === "F" && t.time)
+        // Combine both directions (S + N) so we don't miss trains due to direction mismatch
+        const trains = [
+          ...((stop.S || [])),
+          ...((stop.N || [])),
+        ];
+
+        const arrivals = trains
+          .filter((t) => t.time && t.route && t.route.toUpperCase().startsWith("F"))
           .map((t) => {
             const arrivalMs = new Date(t.time).getTime();
             return { diffMs: arrivalMs - nowMs };
           })
-          .filter((t) => t.diffMs > -30000)
+          // allow anything up to 5 minutes in the past to avoid gaps
+          .filter((t) => t.diffMs > -5 * 60 * 1000)
           .sort((a, b) => a.diffMs - b.diffMs)
           .slice(0, 3);
 
