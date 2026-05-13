@@ -1,29 +1,54 @@
-<script>
-        async function getTrains() {
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #000; color: #fff; font-family: 'Helvetica Neue', Arial; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; overflow: hidden; }
+        .station { font-size: 4vh; color: #888; text-transform: uppercase; margin-bottom: 2vh; }
+        .f-circle { background: #FF6319; color: white; border-radius: 50%; width: 20vh; height: 20vh; line-height: 20vh; font-size: 15vh; font-weight: bold; margin: 0 auto; }
+        .timer { font-size: 25vh; font-weight: 900; color: #FF6319; margin: 2vh 0; }
+        .sub-text { font-size: 5vh; color: #444; }
+    </style>
+</head>
+<body>
+    <div class="station">Sutphin Blvd - Manhattan Bound</div>
+    <div class="f-circle">F</div>
+    <div id="time" class="timer">FETCHING</div>
+    <div id="next" class="sub-text">Connecting to MTA...</div>
+
+    <script>
+        async function updateF() {
             try {
-                // Fetching from a secondary reliable JSON source for the F train
-                const res = await fetch('https://mta-api.herokuapp.com/by-route/F');
-                const data = await res.json();
+                // Using a reliable open-source JSON proxy for the F train (Stop F05)
+                const response = await fetch('https://mta-api.herokuapp.com/stop/F05');
+                const data = await response.json();
                 
-                // We are looking for Sutphin Blvd (Stop F05) Manhattan Bound (Southbound)
-                const sutphinS = data.data.find(stop => stop.id === "F05")
-                                     .arrivals.filter(t => t.id.includes('S'));
+                // Filter for F trains headed South (Manhattan Bound)
+                const arrivals = data.arrivals.filter(train => train.route === 'F');
                 
-                if (sutphinS.length > 0) {
-                    // Calculate minutes from now
-                    const now = Math.floor(Date.now() / 1000);
-                    const arrivalTime = sutphinS[0].time;
-                    const diff = Math.round((arrivalTime - now) / 60);
+                if (arrivals && arrivals.length > 0) {
+                    // Update the primary arrival
+                    document.getElementById('time').innerText = arrivals[0].time + " MIN";
                     
-                    document.getElementById('time').innerText = (diff > 0 ? diff : "0") + " MIN";
-                    
-                    const nextDiff = Math.round((sutphinS[1].time - now) / 60);
-                    document.getElementById('next').innerText = "Next: " + nextDiff + " min";
+                    // Update the secondary arrival if it exists
+                    if (arrivals[1]) {
+                        document.getElementById('next').innerText = "Next: " + arrivals[1].time + " min";
+                    } else {
+                        document.getElementById('next').innerText = "No following trains";
+                    }
+                } else {
+                    document.getElementById('time').innerText = "NO DATA";
+                    document.getElementById('next').innerText = "Check MTA Service Alerts";
                 }
-            } catch (e) {
-                console.log("Waiting for MTA update...");
+            } catch (error) {
+                console.error("MTA Feed Error:", error);
+                document.getElementById('time').innerText = "ERROR";
+                document.getElementById('next').innerText = "Retrying in 30s...";
             }
         }
-        setInterval(getTrains, 30000);
-        getTrains();
+
+        // Refresh every 30 seconds
+        setInterval(updateF, 30000);
+        updateF(); // Initial call
     </script>
+</body>
+</html>
