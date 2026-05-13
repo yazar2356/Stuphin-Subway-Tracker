@@ -1,53 +1,162 @@
-<script>
-  async function updateF() {
-    try {
-      const proxy = "https://corsproxy.io/?";
-      const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F Train Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-      const response = await fetch(proxy + encodeURIComponent(target));
-      const data = await response.json();
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
 
-      const stop = data.data.find(s => s.id === "F05");
-      if (!stop || !stop.S || !Array.isArray(stop.S)) {
-        throw new Error("Stop data missing");
-      }
+    .board {
+      width: 100%;
+      max-width: 1200px;
+      text-align: center;
+    }
 
-      const nowMs = Date.now();
+    .station {
+      font-size: 2rem;
+      color: #a9a9a9;
+      margin-bottom: 32px;
+      letter-spacing: 0.04em;
+    }
 
-      const arrivals = stop.S
-        .filter(t => t.route === "F" && t.time)
-        .map(t => {
-          const arrivalMs = new Date(t.time).getTime();
-          return { diffMs: arrivalMs - nowMs };
-        })
-        .filter(t => t.diffMs > -30000)
-        .sort((a, b) => a.diffMs - b.diffMs)
-        .slice(0, 3);
+    .badge {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: #ff6319;
+      color: #fff;
+      font-size: 5rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 32px;
+    }
 
+    #time {
+      font-size: clamp(4rem, 14vw, 9rem);
+      font-weight: 800;
+      line-height: 1;
+      color: #ff6319;
+    }
+
+    #next {
+      margin-top: 24px;
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      color: #8f8f8f;
+    }
+
+    .updated {
+      margin-top: 18px;
+      font-size: 1rem;
+      color: #5f5f5f;
+    }
+  </style>
+</head>
+<body>
+  <div class="board">
+    <div class="station">SUTPHIN BLVD – MANHATTAN BOUND</div>
+    <div class="badge">F</div>
+    <div id="time">...</div>
+    <div id="next">Loading trains...</div>
+    <div class="updated" id="updated"></div>
+  </div>
+
+  <script>
+    async function updateF() {
       const timeEl = document.getElementById("time");
       const nextEl = document.getElementById("next");
+      const updatedEl = document.getElementById("updated");
 
-      if (!arrivals.length) {
-        timeEl.innerText = "WAIT";
-        nextEl.innerText = "No upcoming F trains";
-        return;
+      try {
+        const proxy = "https://corsproxy.io/?";
+        const target = "https://api.wheresthefuckingtrain.com/by-id/F05";
+
+        const response = await fetch(proxy + encodeURIComponent(target));
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+
+        const data = await response.json();
+
+        if (!data || !data.data || !Array.isArray(data.data)) {
+          throw new Error("Invalid API response");
+        }
+
+        const stop = data.data.find((s) => s.id === "F05");
+        if (!stop || !stop.S || !Array.isArray(stop.S)) {
+          throw new Error("Stop data missing");
+        }
+
+        const nowMs = Date.now();
+
+        const arrivals = stop.S
+          .filter((t) => t.route === "F" && t.time)
+          .map((t) => {
+            const arrivalMs = new Date(t.time).getTime();
+            return { diffMs: arrivalMs - nowMs };
+          })
+          .filter((t) => t.diffMs > -30000)
+          .sort((a, b) => a.diffMs - b.diffMs)
+          .slice(0, 3);
+
+        if (!arrivals.length) {
+          timeEl.innerText = "WAIT";
+          nextEl.innerText = "No upcoming F trains";
+          updatedEl.innerText = "";
+          return;
+        }
+
+        const formatMain = (diffMs) => {
+          if (diffMs < 60000) return "NOW";
+          return `${Math.ceil(diffMs / 60000)} MIN`;
+        };
+
+        const formatSmall = (diffMs) => {
+          if (diffMs < 60000) return "Now";
+          return `${Math.ceil(diffMs / 60000)} min`;
+        };
+
+        timeEl.innerText = formatMain(arrivals[0].diffMs);
+
+        const following = arrivals
+          .slice(1)
+          .map((t) => formatSmall(t.diffMs))
+          .join(" • ");
+
+        nextEl.innerText = following
+          ? `Then: ${following}`
+          : "No later trains listed";
+
+        updatedEl.innerText = `Updated ${new Date().toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit"
+        })}`;
+      } catch (err) {
+        console.error("Data error:", err);
+        timeEl.innerText = "SYNC";
+        nextEl.innerText = "Unable to load arrivals";
+        updatedEl.innerText = "";
       }
-
-      const formatMain = (diffMs) => diffMs < 60000 ? "NOW" : `${Math.ceil(diffMs / 60000)} MIN`;
-      const formatSmall = (diffMs) => diffMs < 60000 ? "Now" : `${Math.ceil(diffMs / 60000)} min`;
-
-      timeEl.innerText = formatMain(arrivals[0].diffMs);
-
-      const following = arrivals.slice(1).map(t => formatSmall(t.diffMs)).join(" • ");
-      nextEl.innerText = following ? `Then: ${following}` : "No later trains listed";
-
-    } catch (err) {
-      console.error("Data error:", err);
-      document.getElementById("time").innerText = "SYNC";
-      document.getElementById("next").innerText = "Unable to load arrivals";
     }
-  }
 
-  setInterval(updateF, 30000);
-  updateF();
-</script>
+    updateF();
+    setInterval(updateF, 30000);
+  </script>
+</body>
+</html>
