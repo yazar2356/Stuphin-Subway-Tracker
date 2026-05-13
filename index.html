@@ -12,38 +12,39 @@
 <body>
     <div class="station">Sutphin Blvd - Manhattan Bound</div>
     <div class="f-circle">F</div>
-    <div id="time" class="timer">SYNCING</div>
+    <div id="time" class="timer">LOADING...</div>
     <div id="next" class="sub-text">Connecting to MTA...</div>
 
     <script>
-        async function updateSubway() {
+        async function updateF() {
             try {
-                // We use 'corsproxy.io' as a bridge to bypass browser security
-                // This fetches the data for us and adds the necessary 'All-Clear' headers
-                const proxy = "https://corsproxy.io/?";
-                const target = "https://mta-api.herokuapp.com/stop/F05";
+                // Using 'allorigins.win' - a very stable proxy to bypass CORS security
+                const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://mta-api.herokuapp.com/stop/F05')}`;
                 
-                const response = await fetch(proxy + encodeURIComponent(target));
-                const data = await response.json();
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const result = await response.json();
+                const data = JSON.parse(result.contents); // Allorigins wraps the response in 'contents'
                 
                 // Filter specifically for Manhattan-bound F trains (Southbound)
-                const trains = data.arrivals.filter(t => t.route === 'F');
+                const fTrains = data.arrivals.filter(t => t.route === 'F');
 
-                if (trains.length > 0) {
-                    document.getElementById('time').innerText = trains[0].time + " MIN";
-                    document.getElementById('next').innerText = "Next: " + (trains[1]?.time || "--") + " min";
+                if (fTrains.length > 0) {
+                    document.getElementById('time').innerText = fTrains[0].time + " MIN";
+                    document.getElementById('next').innerText = "Next: " + (fTrains[1]?.time || "--") + " min";
                 } else {
                     document.getElementById('time').innerText = "NO DATA";
                     document.getElementById('next').innerText = "No upcoming F trains";
                 }
             } catch (error) {
-                document.getElementById('time').innerText = "RETRYING";
                 console.error("Connection failed:", error);
+                document.getElementById('time').innerText = "RETRYING";
             }
         }
 
-        setInterval(updateSubway, 30000); // Auto-refresh every 30 seconds
-        updateSubway();
+        setInterval(updateF, 30000); 
+        updateF();
     </script>
 </body>
 </html>
