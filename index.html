@@ -9,30 +9,27 @@
 
             const stop = data.data.find(s => s.id === "F05");
             
-            // 1. FILTER: Only Manhattan-bound (Southbound)
-            // 2. FILTER: Only show trains at least 1 minute away to avoid "0 MIN" ghosting
+            // Current time in seconds
             const now = Math.floor(Date.now() / 1000);
+
+            // Filter for F trains headed South (Manhattan Bound) 
+            // and only those more than 60 seconds away
             const southbound = stop.S
                 .filter(t => t.route === "F")
-                .map(t => ({
-                    ...t,
-                    mins: Math.floor((new Date(t.time).getTime() / 1000 - now) / 60)
-                }))
-                .filter(t => t.mins >= 1); // Exclude trains that have already "arrived" (0 or less)
+                .map(t => {
+                    const arrivalTime = Math.floor(new Date(t.time).getTime() / 1000);
+                    return Math.floor((arrivalTime - now) / 60);
+                })
+                .filter(mins => mins > 0); // Ignore trains that are '0' or negative (already arrived)
 
             if (southbound.length > 0) {
-                // Primary display
-                document.getElementById('time').innerText = southbound[0].mins + " MIN";
-                
-                // Secondary display
-                if (southbound[1]) {
-                    document.getElementById('next').innerText = "Following: " + southbound[1].mins + " min";
-                } else {
-                    document.getElementById('next').innerText = "Checking next...";
-                }
+                document.getElementById('time').innerText = southbound[0] + " MIN";
+                document.getElementById('next').innerText = southbound[1] 
+                    ? "Following: " + southbound[1] + " min" 
+                    : "No following trains";
             } else {
                 document.getElementById('time').innerText = "WAIT";
-                document.getElementById('next').innerText = "Searching for next F...";
+                document.getElementById('next').innerText = "Finding next train...";
             }
         } catch (err) {
             console.error("Data error:", err);
@@ -40,6 +37,6 @@
         }
     }
     
-    setInterval(updateF, 30000); // 30-second refresh cycle
+    setInterval(updateF, 30000);
     updateF();
 </script>
